@@ -14,44 +14,54 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: РОБИМО КНОПКУ МЕНЮ ВИДИМОЮ ---
+# --- CSS: РОБИМО КНОПКУ АДМІНА ВИДИМОЮ ---
 st.markdown("""
     <style>
-        /* 1. Хедер робимо прозорим, щоб карта була на весь екран */
+        /* 1. Робимо хедер прозорим, але НЕ приховуємо його повністю (щоб кнопка працювала) */
         [data-testid="stHeader"] {
-            background-color: transparent;
-            color: black;
+            background-color: transparent !important;
+            height: 0px; /* Стискаємо хедер, щоб не заважав */
         }
         
-        /* 2. 🔥 МАГІЯ: Перетворюємо стандартну стрілочку меню на КНОПКУ */
-        [data-testid="stSidebarCollapsedControl"] {
-            background-color: white; /* Білий фон */
-            border-radius: 50%;      /* Кругла */
-            width: 45px;             /* Розмір */
-            height: 45px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); /* Тінь */
-            color: #333 !important;  /* Колір стрілочки */
-            border: 1px solid #ccc;
-            
-            /* Відсуваємо її трохи від краю, щоб було зручно тикати */
-            top: 15px; 
-            left: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        /* При наведенні */
-        [data-testid="stSidebarCollapsedControl"]:hover {
-            background-color: #f0f0f0;
-            transform: scale(1.1);
-        }
-
-        /* 3. Ховаємо зайві елементи */
+        /* 2. Ховаємо зайві елементи (три крапки, меню) */
         [data-testid="stToolbar"] {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* 4. Прибираємо відступи */
+        /* 3. 🔥 АГРЕСИВНИЙ СТИЛЬ ДЛЯ КНОПКИ МЕНЮ (АДМІНКИ) 🔥 */
+        [data-testid="stSidebarCollapsedControl"] {
+            display: flex !important;
+            visibility: visible !important;
+            background-color: #ff4b4b !important; /* Яскраво-червоний */
+            color: white !important;
+            
+            /* Розміри та форма */
+            width: 50px !important;
+            height: 50px !important;
+            border-radius: 50% !important;
+            border: 2px solid white !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4) !important;
+            
+            /* Позиція: ВІДСТУП ЗВЕРХУ 80px (щоб точно не сховалася) */
+            top: 80px !important;
+            left: 20px !important;
+            z-index: 99999 !important;
+        }
+        
+        /* Додаємо іконку або літеру на кнопку */
+        [data-testid="stSidebarCollapsedControl"]::after {
+            content: "🔑";
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        /* Ховаємо стандартну стрілочку всередині кнопки */
+        [data-testid="stSidebarCollapsedControl"] svg {
+            display: none !important;
+        }
+
+        /* 4. Прибираємо відступи контенту */
         .block-container {
             padding: 0 !important;
             max-width: 100% !important;
@@ -147,11 +157,11 @@ if password != ADMIN_PASSWORD:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# ⚙️ АДМІНКА (ПОВНИЙ ФУНКЦІОНАЛ)
+# ⚙️ АДМІНКА
 # ==========================================
 else:
     # Відступ зверху для адмінки
-    st.markdown("<div style='padding-top: 20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='padding-top: 50px;'></div>", unsafe_allow_html=True)
     st.success("🔓 Режим Адміністратора")
     
     tab1, tab2 = st.tabs(["🖌️ МАЛЮВАТИ", "✏️ РЕДАГУВАННЯ"])
