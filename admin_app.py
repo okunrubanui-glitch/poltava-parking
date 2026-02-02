@@ -14,21 +14,34 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: БЕЗПЕЧНІ ВІДСТУПИ + КНОПКИ ---
+# --- CSS: ВИПРАВЛЯЄМО ІНТЕРФЕЙС ---
 st.markdown("""
     <style>
-        /* 1. Робимо відступ зверху, щоб не лізти під "чубчик" телефону */
+        /* 1. Робимо верхню панель ПРОЗОРОЮ, але ВИДИМОЮ */
+        /* Це поверне стандартну стрілочку >, яка точно працює */
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0); /* Прозорий фон */
+            color: black;
+        }
+        
+        /* 2. Ховаємо "Три крапки" справа зверху (вони людям не треба) */
+        [data-testid="stToolbar"] {
+            visibility: hidden;
+        }
+
+        /* 3. Ховаємо футер */
+        footer {visibility: hidden;}
+        
+        /* 4. Прибираємо відступи контенту */
         .block-container {
             padding-top: 0 !important;
             padding-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
             max-width: 100% !important;
         }
         
-        /* 2. Ховаємо стандартний хедер Streamlit, він нам не треба */
-        header {visibility: hidden !important;}
-        footer {visibility: hidden !important;}
-
-        /* 3. КНОПКА "ДОДАТИ ЗОНУ" (ЗНИЗУ) */
+        /* 5. Стиль нижньої кнопки "Додати зону" */
         .floating-btn {
             position: fixed;
             bottom: 30px;
@@ -46,31 +59,6 @@ st.markdown("""
             box-shadow: 0 10px 20px rgba(0, 136, 204, 0.4);
             border: 2px solid rgba(255,255,255,0.2);
             display: flex; align-items: center; gap: 10px;
-        }
-
-        /* 4. 🔥 НОВА КНОПКА "КЛЮЧ" (ЗЛІВА ЗВЕРХУ) 🔥 */
-        /* Ми опускаємо її на 60px вниз, щоб вона не ховалася за інтерфейсом браузера */
-        .admin-key-btn {
-            position: fixed;
-            top: 60px; 
-            left: 20px;
-            z-index: 9999;
-            background-color: rgba(255, 255, 255, 0.9);
-            color: #333 !important;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            text-decoration: none !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify_content: center;
-            font-size: 24px;
-            border: 1px solid #ddd;
-        }
-        .admin-key-btn:hover {
-            background-color: #f0f0f0;
-            transform: scale(1.1);
         }
     </style>
     """, unsafe_allow_html=True)
@@ -91,29 +79,17 @@ def save_data(data):
 
 zones = load_data()
 
-# --- ЛОГІКА ВХОДУ ЧЕРЕЗ SESSION STATE ---
-if 'is_admin' not in st.session_state:
-    st.session_state.is_admin = False
-
-# Якщо натиснули "Увійти" (імітація через кнопку в інтерфейсі)
-# Ми зробимо простіше: Сайдбар завжди доступний, але ми відкриваємо його кодом?
-# Streamlit не дає відкривати сайдбар кнопкою. Тому ми зробимо своє "вікно" входу.
-
 # --- САЙДБАР (ВХІД) ---
 with st.sidebar:
-    st.title("🔐 Вхід")
-    password = st.text_input("Пароль", type="password")
-    if password == ADMIN_PASSWORD:
-        st.session_state.is_admin = True
-    else:
-        st.session_state.is_admin = False
+    st.title("🔐 Вхід для адміна")
+    password = st.text_input("Введи пароль", type="password")
 
 # ==========================================
 # 🌍 ГОЛОВНИЙ ЕКРАН
 # ==========================================
 
-# 1. Якщо ми НЕ адмін — показуємо карту і кнопку входу
-if not st.session_state.is_admin:
+# Перевірка пароля
+if password != ADMIN_PASSWORD:
     
     # Карта
     m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=False)
@@ -140,7 +116,6 @@ if not st.session_state.is_admin:
         </div>
         """
         
-        # Малюємо
         if spot.get("shape") == "polygon":
             folium.Polygon(locations=spot["points"], color=col, fill=True, fill_color=fill, fill_opacity=0.4, popup=folium.Popup(popup_html, max_width=200)).add_to(grp)
         else:
@@ -150,43 +125,14 @@ if not st.session_state.is_admin:
     safe_group.add_to(m)
     LocateControl(auto_start=True).add_to(m)
 
+    # Карта на весь екран
     st_folium(m, width="100%", height=850, returned_objects=[])
 
-    # 👇 КНОПКА "ДОДАТИ" (Знизу)
+    # Кнопка "Додати" (Тільки вона, без зайвих написів)
     st.markdown(f"""
         <a href="https://t.me/{TG_BOT_USERNAME}" target="_blank" class="floating-btn">
             <span>📢</span> Додати зону
         </a>
-    """, unsafe_allow_html=True)
-
-    # 👇 КНОПКА "ВХІД" (Зверху зліва - ВІДСТУП 60px)
-    # Це маленький "хак": ми робимо прозору кнопку поверх стрілочки сайдбару, щоб ти знав де вона
-    # АБО ми просто пишемо текст
-    st.markdown("""
-        <div style="position: fixed; top: 60px; left: 15px; z-index: 9999; background: white; padding: 5px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 12px; font-weight: bold; pointer-events: none;">
-            ⬅️ Адмін тут
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # ВАЖЛИВО: Я повернув видимість хедера трішки, щоб стрілочка точно була
-    st.markdown("""
-        <style>
-            [data-testid="stHeader"] {
-                background-color: transparent !important;
-                visibility: visible !important;
-            }
-            [data-testid="stSidebarCollapsedControl"] {
-                display: block !important;
-                color: black !important;
-                background-color: white;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                top: 60px !important; /* Опускаємо стрілочку вниз! */
-                left: 15px !important;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            }
-        </style>
     """, unsafe_allow_html=True)
 
 
@@ -201,39 +147,4 @@ else:
     with tab1:
         st.info("Малюй на карті -> тисни 'Зберегти'")
         from folium.plugins import Draw
-        m_draw = folium.Map(location=POLTAVA_COORDS, zoom_start=16)
-        Draw(draw_options={'polyline':False, 'marker':False, 'polygon':True, 'circle':True, 'rectangle':True}).add_to(m_draw)
-        output = st_folium(m_draw, width=800, height=500)
-        
-        if output.get("last_active_drawing"):
-            drawing = output["last_active_drawing"]
-            with st.form("save"):
-                name = st.text_input("Назва")
-                z_type = st.selectbox("Тип", ["danger", "safe"])
-                info = st.text_input("Опис")
-                if st.form_submit_button("💾 Зберегти"):
-                    new_id = int(time.time())
-                    geom = drawing['geometry']
-                    new_entry = {"id": new_id, "name": name, "type": z_type, "info": info}
-                    if geom['type'] == 'Polygon':
-                        new_entry["shape"] = "polygon"
-                        new_entry["points"] = [[p[1], p[0]] for p in geom['coordinates'][0]]
-                    else:
-                        new_entry["shape"] = "circle"
-                        new_entry["coords"] = [geom['coordinates'][1], geom['coordinates'][0]]
-                        new_entry["radius"] = 20
-                    zones.append(new_entry)
-                    save_data(zones)
-                    st.toast("Готово!")
-                    time.sleep(1)
-                    st.rerun()
-
-    with tab2:
-        for i, z in enumerate(zones):
-            col1, col2 = st.columns([4, 1])
-            with col1: st.write(f"**{z['name']}**")
-            with col2:
-                if st.button("🗑️", key=f"del_{i}"):
-                    zones.pop(i)
-                    save_data(zones)
-                    st.rerun()
+        m_draw = fol
