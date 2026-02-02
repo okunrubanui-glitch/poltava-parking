@@ -14,27 +14,50 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: ЧИСТИЙ ЕКРАН ДЛЯ ЛЮДЕЙ, АЛЕ ПРАЦЮЮЧА АДМІНКА ---
+# --- CSS: РОБИМО КНОПКУ МЕНЮ ВИДИМОЮ ---
 st.markdown("""
     <style>
-        /* 1. Хедер прозорий, але доступний (щоб працювала стрілочка меню) */
+        /* 1. Хедер робимо прозорим, щоб карта була на весь екран */
         [data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0);
+            background-color: transparent;
             color: black;
         }
         
-        /* 2. Ховаємо зайве */
+        /* 2. 🔥 МАГІЯ: Перетворюємо стандартну стрілочку меню на КНОПКУ */
+        [data-testid="stSidebarCollapsedControl"] {
+            background-color: white; /* Білий фон */
+            border-radius: 50%;      /* Кругла */
+            width: 45px;             /* Розмір */
+            height: 45px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); /* Тінь */
+            color: #333 !important;  /* Колір стрілочки */
+            border: 1px solid #ccc;
+            
+            /* Відсуваємо її трохи від краю, щоб було зручно тикати */
+            top: 15px; 
+            left: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* При наведенні */
+        [data-testid="stSidebarCollapsedControl"]:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        /* 3. Ховаємо зайві елементи */
         [data-testid="stToolbar"] {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* 3. Прибираємо відступи (важливо для карти) */
+        /* 4. Прибираємо відступи */
         .block-container {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
+            padding: 0 !important;
             max-width: 100% !important;
         }
         
-        /* 4. Кнопка "Додати зону" для людей */
+        /* 5. Кнопка "Додати зону" знизу */
         .floating-btn {
             position: fixed;
             bottom: 30px;
@@ -127,16 +150,14 @@ if password != ADMIN_PASSWORD:
 # ⚙️ АДМІНКА (ПОВНИЙ ФУНКЦІОНАЛ)
 # ==========================================
 else:
-    # Трохи відступу для адмінки, щоб не прилипало до верху
+    # Відступ зверху для адмінки
     st.markdown("<div style='padding-top: 20px;'></div>", unsafe_allow_html=True)
     st.success("🔓 Режим Адміністратора")
     
-    # ПОВЕРНУВ ВКЛАДКУ РЕДАГУВАННЯ
-    tab1, tab2 = st.tabs(["🖌️ МАЛЮВАТИ НОВУ", "✏️ ПОШУК І РЕДАГУВАННЯ"])
+    tab1, tab2 = st.tabs(["🖌️ МАЛЮВАТИ", "✏️ РЕДАГУВАННЯ"])
     
-    # --- ТАБ 1: МАЛЮВАННЯ ---
     with tab1:
-        st.info("Намалюй зону на карті -> заповни форму -> 'Зберегти'")
+        st.info("Малюй на карті -> тисни 'Зберегти'")
         from folium.plugins import Draw
         m_draw = folium.Map(location=POLTAVA_COORDS, zoom_start=16)
         Draw(draw_options={'polyline':False, 'marker':False, 'polygon':True, 'circle':True, 'rectangle':True}).add_to(m_draw)
@@ -165,12 +186,10 @@ else:
                     time.sleep(1)
                     st.rerun()
 
-    # --- ТАБ 2: РЕДАГУВАННЯ (ПОВЕРНУВ ЯК БУЛО) ---
     with tab2:
         st.subheader("🔍 Пошук і Редагування")
         search_query = st.text_input("Введи назву або ID:", placeholder="Наприклад: ЦУМ")
         
-        # Фільтрація
         if search_query:
             filtered_zones = [z for z in zones if search_query.lower() in z['name'].lower() or str(search_query) in str(z.get('id', ''))]
         else:
@@ -178,48 +197,33 @@ else:
 
         st.write(f"Знайдено: {len(filtered_zones)}")
 
-        # Вивід списку з можливістю редагування
         for i, zone in enumerate(filtered_zones):
-            # Знаходимо реальний індекс у головному списку (щоб не видалити не те)
             real_index = zones.index(zone)
-            
             icon = "⛔" if zone["type"] == "danger" else "✅"
             
             with st.expander(f"{icon} {zone['name']} (ID: {zone.get('id', '')})"):
                 with st.form(key=f"edit_{zone.get('id')}_{i}"):
                     col1, col2 = st.columns(2)
-                    
                     with col1:
                         new_name = st.text_input("Назва", value=zone['name'])
                         type_idx = 0 if zone['type'] == "danger" else 1
                         new_type = st.selectbox("Тип", ["danger", "safe"], index=type_idx)
-                    
                     with col2:
                         new_info = st.text_input("Опис", value=zone.get('info', ''))
-                        # Якщо це коло - даємо редагувати радіус
                         new_radius = zone.get('radius', 20)
                         if zone.get('shape') != 'polygon':
-                            new_radius = st.number_input("Радіус (метри)", value=int(zone.get('radius', 20)))
+                            new_radius = st.number_input("Радіус", value=int(zone.get('radius', 20)))
 
-                    col_save, col_del = st.columns([1, 4])
-                    
-                    with col_save:
-                        if st.form_submit_button("💾 ЗБЕРЕГТИ ЗМІНИ"):
-                            zones[real_index]['name'] = new_name
-                            zones[real_index]['type'] = new_type
-                            zones[real_index]['info'] = new_info
-                            if zone.get('shape') != 'polygon':
-                                zones[real_index]['radius'] = new_radius
-                            
-                            save_data(zones)
-                            st.toast("Зміни збережено!", icon="✅")
-                            time.sleep(1)
-                            st.rerun()
+                    if st.form_submit_button("💾 ЗБЕРЕГТИ ЗМІНИ"):
+                        zones[real_index]['name'] = new_name
+                        zones[real_index]['type'] = new_type
+                        zones[real_index]['info'] = new_info
+                        if zone.get('shape') != 'polygon':
+                            zones[real_index]['radius'] = new_radius
+                        save_data(zones)
+                        st.rerun()
                 
-                # Кнопка видалення окремо (поза формою, щоб не глючила)
-                if st.button("🗑️ Видалити цю зону", key=f"del_btn_{zone.get('id')}"):
+                if st.button("🗑️ Видалити", key=f"del_btn_{zone.get('id')}"):
                     zones.pop(real_index)
                     save_data(zones)
-                    st.error("Видалено!")
-                    time.sleep(1)
                     st.rerun()
