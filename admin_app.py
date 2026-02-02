@@ -14,7 +14,7 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: ЖОРСТКА ФІКСАЦІЯ КНОПКИ ---
+# --- CSS: ВИПРАВЛЯЄМО НАКЛАДАННЯ КНОПОК ---
 st.markdown("""
     <style>
         /* 1. Хедер прозорий */
@@ -28,15 +28,15 @@ st.markdown("""
         /* 2. Прибираємо відступи */
         .block-container { padding: 0 !important; max-width: 100% !important; }
         
-        /* 3. 🔥 СТИЛІЗАЦІЯ НАШОЇ КНОПКИ ВХОДУ (КЛЮЧИК) 🔥 */
-        /* Ми знаходимо кнопку за її унікальним класом (створимо нижче) */
+        /* 3. 🔥 КНОПКА ВХОДУ (КЛЮЧИК) - ОПУСКАЄМО НИЖЧЕ 🔥 */
         div.stButton > button:first-child {
             position: fixed !important;
-            top: 180px !important; /* Висота під зумом */
+            /* 👇 БУЛО 180px -> СТАЛО 260px (Щоб не перекривати геолокацію) */
+            top: 260px !important; 
             left: 10px !important;
             z-index: 99999 !important;
             
-            /* Робимо її схожою на кнопки карти */
+            /* Стиль як у кнопок карти */
             background-color: white !important;
             color: #333 !important;
             border: 2px solid rgba(0,0,0,0.2) !important;
@@ -51,19 +51,16 @@ st.markdown("""
             font-size: 18px !important;
         }
         
-        /* Ефект натискання */
         div.stButton > button:first-child:active {
             background-color: #ddd !important;
             transform: scale(0.95);
         }
-        
-        /* Прибираємо стандартні ефекти наведення Streamlit */
         div.stButton > button:first-child:hover {
             border-color: rgba(0,0,0,0.2) !important;
             color: #333 !important;
         }
 
-        /* 4. Кнопка "Додати зону" (HTML) */
+        /* 4. Кнопка "Додати зону" (знизу) */
         .floating-btn {
             position: fixed;
             bottom: 30px;
@@ -98,11 +95,11 @@ def save_data(data):
 
 zones = load_data()
 
-# Ініціалізація стану адміна
+# Стан адміна
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-# --- МОДАЛЬНЕ ВІКНО ВХОДУ (НОВА ФІШКА) ---
+# --- ВІКНО ВХОДУ ---
 @st.dialog("🔐 Вхід для Адміна")
 def login_dialog():
     st.write("Введи секретний код:")
@@ -118,18 +115,16 @@ def login_dialog():
 # 🌍 ГОЛОВНА ЛОГІКА
 # ==========================================
 
-# Якщо ми НЕ адмін
 if not st.session_state.is_admin:
     
-    # 1. Створюємо справжню кнопку Streamlit
-    # Вона автоматично полетить на coordinates top:180px завдяки CSS вище
+    # 1. Кнопка Ключа (Полетить на 260px вниз)
     if st.button("🔑"):
         login_dialog()
 
     # 2. Карта
     m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=True)
     
-    # CSS хак для кнопок Leaflet (Зум і Локація)
+    # CSS хак для кнопок карти (Зум/Локація) - відступ 60px зверху
     css_fix = """
     <style>
     .leaflet-top.leaflet-left { top: 60px !important; }
@@ -163,7 +158,6 @@ if not st.session_state.is_admin:
 
     st_folium(m, width="100%", height=850, returned_objects=[])
 
-    # Кнопка "Додати зону" (HTML)
     st.markdown(f"""
         <a href="https://t.me/{TG_BOT_USERNAME}" target="_blank" class="floating-btn">
             <span>📢</span> Додати зону
@@ -171,10 +165,9 @@ if not st.session_state.is_admin:
     """, unsafe_allow_html=True)
 
 # ==========================================
-# ⚙️ АДМІН ПАНЕЛЬ
+# ⚙️ АДМІНКА
 # ==========================================
 else:
-    # Кнопка виходу
     if st.button("🚪 Вийти з адмінки"):
         st.session_state.is_admin = False
         st.rerun()
