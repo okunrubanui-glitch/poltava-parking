@@ -12,62 +12,71 @@ POLTAVA_COORDS = [49.5894, 34.5510]
 TG_BOT_USERNAME = "PoltavaParking_AndreBot" 
 ADMIN_PASSWORD = "123" # 🔴 ЗМІНИ ПАРОЛЬ!
 
-# Вмикаємо режим "на весь екран" і ховаємо сайдбар
+# Вмикаємо режим "на весь екран"
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS МАГІЯ (ХОВАЄМО ВСЕ ЗАЙВЕ) ---
+# --- CSS МАГІЯ (КРАСИВА КНОПКА + ЧИСТИЙ ЕКРАН) ---
 st.markdown("""
     <style>
-        /* 1. Прибираємо верхню кольорову смужку (Header) */
-        header {visibility: hidden !important;}
+        /* Ховаємо стандартні елементи Streamlit */
+        header, footer, #MainMenu {visibility: hidden !important;}
         .stApp > header {display: none !important;}
         
-        /* 2. Прибираємо кнопку-гамбургер (Три смужки справа зверху) */
-        #MainMenu {visibility: hidden !important;}
-        
-        /* 3. Прибираємо напис внизу "Made with Streamlit" */
-        footer {visibility: hidden !important;}
-        
-        /* 4. Прибираємо білі відступи по краях, щоб карта була на весь екран */
+        /* Прибираємо відступи */
         .block-container {
-            padding-top: 0rem !important;
-            padding-bottom: 0rem !important;
-            padding-left: 0rem !important;
-            padding-right: 0rem !important;
+            padding: 0 !important;
             max-width: 100% !important;
         }
-        
-        /* 5. Прибираємо відступи між елементами */
-        div[data-testid="stVerticalBlock"] {
-            gap: 0rem !important;
-        }
+        div[data-testid="stVerticalBlock"] { gap: 0 !important; }
 
-        /* 6. Стиль для твоєї кнопки "Додати зону" */
+        /* 🔥 НОВИЙ СТИЛЬ ДЛЯ КНОПКИ 🔥 */
         .floating-btn {
             position: fixed;
-            bottom: 30px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 9999;
-            background-color: #0088cc;
-            color: white; 
-            padding: 15px 30px;
+            
+            /* Градієнтний фон (виглядає дорого) */
+            background: linear-gradient(135deg, #0088cc 0%, #005f99 100%);
+            
+            /* Білий текст - ВАЖЛИВО! */
+            color: white !important;
+            
+            /* Розміри та форма */
+            padding: 15px 35px;
             border-radius: 50px;
-            text-decoration: none;
+            text-decoration: none !important; /* Прибираємо підкреслення */
+            font-family: sans-serif;
             font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            border: 2px solid white;
+            font-size: 18px;
+            
+            /* Тінь (щоб кнопка "літала" над картою) */
+            box-shadow: 0 10px 20px rgba(0, 136, 204, 0.4);
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+            
+            /* Вирівнювання іконки і тексту */
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+        
+        /* Ефект при натисканні */
+        .floating-btn:active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 5px 10px rgba(0, 136, 204, 0.3);
+        }
+        
+        /* При наведенні */
         .floating-btn:hover {
-            background-color: #006699;
-            color: white;
+            color: white !important;
+            box-shadow: 0 15px 25px rgba(0, 136, 204, 0.6);
         }
     </style>
     """, unsafe_allow_html=True)
 
-# --- ФУНКЦІЇ ЗАВАНТАЖЕННЯ ---
+# --- ФУНКЦІЇ ---
 def load_data():
     if not os.path.exists(DB_FILE):
         return []
@@ -84,17 +93,16 @@ def save_data(data):
 zones = load_data()
 
 # --- ПРИХОВАНА АДМІНКА ---
-# Сайдбар тепер закритий. Щоб зайти, треба натиснути стрілочку > зліва зверху.
 with st.sidebar:
     st.write("🔐 **Адмін-панель**")
     password = st.text_input("Пароль", type="password")
 
 # ==========================================
-# 🌍 РЕЖИМ 1: ПУБЛІЧНА КАРТА (ТЕ ЩО БАЧАТЬ УСІ)
+# 🌍 РЕЖИМ 1: ПУБЛІЧНА КАРТА
 # ==========================================
 if password != ADMIN_PASSWORD:
     
-    # Створюємо карту без зайвих кнопок зуму (вони дрібні на телефоні)
+    # Карта
     m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=False)
     
     danger_group = folium.FeatureGroup(name="⛔ Заборона")
@@ -103,12 +111,10 @@ if password != ADMIN_PASSWORD:
     for spot in zones:
         if spot["type"] == "danger":
             target_group = danger_group
-            col, fill = "#D32F2F", "#EF5350"
-            icon = "⛔"
+            col, fill, icon = "#D32F2F", "#EF5350", "⛔"
         else:
             target_group = safe_group
-            col, fill = "#388E3C", "#66BB6A"
-            icon = "✅"
+            col, fill, icon = "#388E3C", "#66BB6A", "✅"
             
         spot_id = spot.get('id', '???')
         link = f"https://t.me/{TG_BOT_USERNAME}?text=Помилка%20ID:{spot_id}"
@@ -136,30 +142,28 @@ if password != ADMIN_PASSWORD:
 
     danger_group.add_to(m)
     safe_group.add_to(m)
-    
-    # Кнопка "Де я?"
-    LocateControl(auto_start=True, strings={"title": "Де я?"}).add_to(m)
+    LocateControl(auto_start=True).add_to(m)
 
-    # ВАЖЛИВО: Висота 95vh (95% висоти екрану телефону)
+    # Висота карти 95% екрану
     st_folium(m, width="100%", height=800, returned_objects=[])
 
-    # Кнопка поверх карти (HTML)
+    # 👇 ОСЬ ТУТ КНОПКА З ІКОНКОЮ 👇
     st.markdown(f"""
         <a href="https://t.me/{TG_BOT_USERNAME}" target="_blank" class="floating-btn">
-            📢 Додати зону
+            <span>📢</span> Додати зону
         </a>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# ⚙️ РЕЖИМ 2: АДМІНКА (ТІЛЬКИ З ПАРОЛЕМ)
+# ⚙️ РЕЖИМ 2: АДМІНКА
 # ==========================================
 else:
-    st.success("🔓 Режим Адміністратора активовано")
+    st.success("🔓 Режим Адміністратора")
     
     tab1, tab2 = st.tabs(["🖌️ МАЛЮВАТИ", "🗑️ ВИДАЛЯТИ"])
     
     with tab1:
-        st.write("Намалюй зону і натисни 'Зберегти' під картою")
+        st.info("Намалюй зону на карті, заповни форму і натисни Зберегти")
         from folium.plugins import Draw
         m_draw = folium.Map(location=POLTAVA_COORDS, zoom_start=16)
         Draw(draw_options={'polyline':False, 'marker':False, 'polygon':True, 'circle':True, 'rectangle':True}).add_to(m_draw)
@@ -170,7 +174,7 @@ else:
             with st.form("save"):
                 name = st.text_input("Назва зони")
                 z_type = st.selectbox("Тип", ["danger", "safe"])
-                info = st.text_input("Опис (напр. 'Штрафують зранку')")
+                info = st.text_input("Опис")
                 if st.form_submit_button("💾 Зберегти в базу"):
                     new_id = int(time.time())
                     geom = drawing['geometry']
@@ -184,12 +188,11 @@ else:
                         new_entry["radius"] = 20
                     zones.append(new_entry)
                     save_data(zones)
-                    st.toast("Зону успішно додано!", icon="✅")
+                    st.toast("Збережено!", icon="✅")
                     time.sleep(1)
                     st.rerun()
 
     with tab2:
-        st.write("Список усіх зон у базі:")
         for i, z in enumerate(zones):
             col1, col2 = st.columns([4, 1])
             with col1:
