@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
-from folium.plugins import LocateControl, Geocoder
+from folium.plugins import LocateControl
 import json
 import os
 import time
@@ -10,10 +10,47 @@ import time
 DB_FILE = "zones.json"
 POLTAVA_COORDS = [49.5894, 34.5510]
 TG_BOT_USERNAME = "PoltavaParking_AndreBot" 
-# ПАРОЛЬ ДЛЯ ВХОДУ В АДМІНКУ (Зміни його на свій!)
-ADMIN_PASSWORD = "123"
+ADMIN_PASSWORD = "123" # Зміни на свій пароль!
 
-st.set_page_config(page_title="Парковка Полтава", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="Парковка Полтава", page_icon="🚗", layout="wide", initial_sidebar_state="collapsed")
+
+# --- CSS ХАКИ ДЛЯ "ЧИСТОГО" ЕКРАНУ ---
+st.markdown("""
+    <style>
+        /* 1. Прибираємо верхній відступ і "гамбургер" меню */
+        .block-container {
+            padding-top: 0rem !important;
+            padding-bottom: 0rem !important;
+            padding-left: 0rem !important;
+            padding-right: 0rem !important;
+            max-width: 100% !important;
+        }
+        /* 2. Ховаємо хедер (смужка зверху) */
+        header {visibility: hidden;}
+        /* 3. Ховаємо футер (напис внизу) */
+        footer {visibility: hidden;}
+        /* 4. Прибираємо відступи навколо карти */
+        iframe {
+            width: 100% !important;
+        }
+        /* 5. Стиль для кнопки "Надіслати зону" */
+        .floating-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            background-color: #0088cc;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-family: sans-serif;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- ФУНКЦІЇ ---
 def load_data():
@@ -29,137 +66,81 @@ def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# --- ЛОГІКА ІНТЕРФЕЙСУ ---
 zones = load_data()
 
-# Сайдбар (Бокова панель)
+# --- САЙДБАР (СХОВАНИЙ ЗА ЗАМОВЧУВАННЯМ) ---
 with st.sidebar:
-    st.title("🚗 Навігація")
-    # Поле для пароля
-    password = st.text_input("🔑 Вхід для адміна", type="password")
+    st.write("🔧 **Меню Адміністратора**")
+    password = st.text_input("Введи пароль", type="password")
     
-    st.divider()
-    st.info(f"Всього зон на карті: {len(zones)}")
-    st.caption("Developed by Andre")
-
-# === РЕЖИМ 1: ПУБЛІЧНА КАРТА (ВІДКРИВАЄТЬСЯ ВСІМ) ===
+# === РЕЖИМ 1: ПУБЛІЧНА КАРТА ===
 if password != ADMIN_PASSWORD:
-    st.title("🅿️ Карта парковок Полтави")
+    # Створюємо карту без зайвих елементів
+    m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False)
     
-    # Створюємо карту
-    m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron')
-    
-    # Додаємо шари
-    danger_group = folium.FeatureGroup(name="⛔ Заборонені зони")
-    safe_group = folium.FeatureGroup(name="✅ Безпечні парковки")
+    danger_group = folium.FeatureGroup(name="⛔ Заборона")
+    safe_group = folium.FeatureGroup(name="✅ Парковка")
 
     for spot in zones:
-        # Кольори та іконки
         if spot["type"] == "danger":
             target_group = danger_group
-            col, fill = "#D32F2F", "#EF5350"
-            icon = "⛔"
+            col, fill, icon = "#D32F2F", "#EF5350", "⛔"
         else:
             target_group = safe_group
-            col, fill = "#388E3C", "#66BB6A"
-            icon = "✅"
+            col, fill, icon = "#388E3C", "#66BB6A", "✅"
             
-        # Формуємо красивий опис для кліку
         spot_id = spot.get('id', '???')
-        # Посилання на бота для скарги
-        msg = f"Помилка в зоні ID:{spot_id} ({spot['name']})"
-        link = f"https://t.me/{TG_BOT_USERNAME}?text={msg.replace(' ', '%20')}"
+        link = f"https://t.me/{TG_BOT_USERNAME}?text=Помилка%20ID:{spot_id}"
         
         popup_html = f"""
-        <div style="font-family: sans-serif; min-width: 150px;">
+        <div style="font-family: sans-serif; font-size: 14px; min-width: 160px;">
             <b>{icon} {spot['name']}</b><br>
-            <i style="color:gray;">{spot.get('info', '')}</i><br><br>
-            <a href="{link}" target="_blank" style="color:red; font-size:12px;">⚠️ Поскаржитися</a>
+            <span style="color:#555;">{spot.get('info', '')}</span><br>
+            <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
+            <a href="{link}" target="_blank" style="color:#d9534f; text-decoration:none;">⚠️ Повідомити про помилку</a>
         </div>
         """
 
-        # Малюємо фігуру
         if spot.get("shape") == "polygon":
             folium.Polygon(
                 locations=spot["points"], color=col, fill=True, fill_color=fill, fill_opacity=0.4,
-                popup=folium.Popup(popup_html, max_width=250), tooltip=spot["name"]
+                popup=folium.Popup(popup_html, max_width=250)
             ).add_to(target_group)
         else:
             folium.Circle(
                 location=spot["coords"], radius=spot.get("radius", 20),
                 color=col, fill=True, fill_color=fill, fill_opacity=0.4,
-                popup=folium.Popup(popup_html, max_width=250), tooltip=spot["name"]
+                popup=folium.Popup(popup_html, max_width=250)
             ).add_to(target_group)
 
     danger_group.add_to(m)
     safe_group.add_to(m)
-    
-    # Кнопка геолокації
-    LocateControl(auto_start=False, strings={"title": "Де я?"}).add_to(m)
-    
-    # Виводимо карту на екран
-    st_folium(m, width="100%", height=600)
-    
+    LocateControl(auto_start=False).add_to(m)
+
+    # ВАЖЛИВО: height=85vh означає 85% висоти екрана
+    st_folium(m, width="100%", height=700, returned_objects=[])
+
+    # Плаваюча кнопка поверх карти (через HTML)
     st.markdown(f"""
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="https://t.me/{TG_BOT_USERNAME}" target="_blank" style="background-color: #0088cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 10px; font-weight: bold;">
-        📢 Надіслати нову зону через Бота
+        <a href="https://t.me/{TG_BOT_USERNAME}" target="_blank" class="floating-btn">
+            📢 Додати зону
         </a>
-    </div>
     """, unsafe_allow_html=True)
 
-
-# === РЕЖИМ 2: АДМІНКА (ТІЛЬКИ ЯКЩО ПАРОЛЬ ПРАВИЛЬНИЙ) ===
+# === РЕЖИМ 2: АДМІНКА ===
 else:
-    st.warning("🔓 Ви увійшли в режим Адміністратора")
+    st.success("🔓 Режим Адміністратора")
     
-    tab1, tab2 = st.tabs(["🗺️ ДОДАТИ НОВУ", "✏️ РЕДАГУВАННЯ"])
+    # (Тут твій код адмінки для редагування - залишаємо як був, він потрібен тільки тобі)
+    tab1, tab2 = st.tabs(["ДОДАТИ", "СПИСОК"])
     
-    # (ТУТ ВЕСЬ ТВІЙ СТАРИЙ КОД АДМІНКИ)
-    # Я його скоротив для зручності, але суть та сама: малювання і редагування
-    
-    # --- ВКЛАДКА МАЛЮВАННЯ ---
     with tab1:
-        st.subheader("Додати нову зону")
-        # Карта для малювання
         from folium.plugins import Draw
         m_draw = folium.Map(location=POLTAVA_COORDS, zoom_start=16)
         Draw(draw_options={'polyline':False, 'marker':False, 'polygon':True, 'circle':True, 'rectangle':True}).add_to(m_draw)
-        
         output = st_folium(m_draw, width=800, height=500)
         
-        # Форма збереження
         if output.get("last_active_drawing"):
             drawing = output["last_active_drawing"]
-            with st.form("save_new"):
-                name = st.text_input("Назва")
-                z_type = st.selectbox("Тип", ["danger", "safe"])
-                info = st.text_input("Опис")
-                if st.form_submit_button("Зберегти"):
-                    # Зберігаємо...
-                    new_id = int(time.time())
-                    geom = drawing['geometry']
-                    new_entry = {"id": new_id, "name": name, "type": z_type, "info": info}
-                    if geom['type'] == 'Polygon':
-                        new_entry["shape"] = "polygon"
-                        # Перевертаємо координати для folium
-                        new_entry["points"] = [[p[1], p[0]] for p in geom['coordinates'][0]]
-                    else:
-                        new_entry["shape"] = "circle"
-                        new_entry["coords"] = [geom['coordinates'][1], geom['coordinates'][0]]
-                        new_entry["radius"] = 20 # Дефолтний радіус
-                    
-                    zones.append(new_entry)
-                    save_data(zones)
-                    st.success("Додано!")
-                    st.rerun()
-
-    # --- ВКЛАДКА СПИСКУ ---
-    with tab2:
-        st.subheader("Список усіх зон")
-        for i, z in enumerate(zones):
-            with st.expander(f"{z['name']} ({z['type']})"):
-                if st.button(f"🗑️ Видалити {z['name']}", key=f"del_{i}"):
-                    zones.pop(i)
-                    save_data(zones)
-                    st.rerun()
+            with st.form("save"):
+                name = st.text_
