@@ -147,4 +147,39 @@ else:
     with tab1:
         st.info("Малюй на карті -> тисни 'Зберегти'")
         from folium.plugins import Draw
-        m_draw = fol
+        m_draw = folium.Map(location=POLTAVA_COORDS, zoom_start=16)
+        Draw(draw_options={'polyline':False, 'marker':False, 'polygon':True, 'circle':True, 'rectangle':True}).add_to(m_draw)
+        output = st_folium(m_draw, width=800, height=500)
+        
+        if output.get("last_active_drawing"):
+            drawing = output["last_active_drawing"]
+            with st.form("save"):
+                name = st.text_input("Назва")
+                z_type = st.selectbox("Тип", ["danger", "safe"])
+                info = st.text_input("Опис")
+                if st.form_submit_button("💾 Зберегти"):
+                    new_id = int(time.time())
+                    geom = drawing['geometry']
+                    new_entry = {"id": new_id, "name": name, "type": z_type, "info": info}
+                    if geom['type'] == 'Polygon':
+                        new_entry["shape"] = "polygon"
+                        new_entry["points"] = [[p[1], p[0]] for p in geom['coordinates'][0]]
+                    else:
+                        new_entry["shape"] = "circle"
+                        new_entry["coords"] = [geom['coordinates'][1], geom['coordinates'][0]]
+                        new_entry["radius"] = 20
+                    zones.append(new_entry)
+                    save_data(zones)
+                    st.toast("Готово!")
+                    time.sleep(1)
+                    st.rerun()
+
+    with tab2:
+        for i, z in enumerate(zones):
+            col1, col2 = st.columns([4, 1])
+            with col1: st.write(f"**{z['name']}**")
+            with col2:
+                if st.button("🗑️", key=f"del_{i}"):
+                    zones.pop(i)
+                    save_data(zones)
+                    st.rerun()
