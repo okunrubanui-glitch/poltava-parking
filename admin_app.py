@@ -14,60 +14,52 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: РОБИМО КНОПКУ АДМІНА ВИДИМОЮ ---
+# --- CSS: СТИЛІ ІНТЕРФЕЙСУ ---
 st.markdown("""
     <style>
-        /* 1. Робимо хедер прозорим, але НЕ приховуємо його повністю (щоб кнопка працювала) */
+        /* 1. Хедер прозорий */
         [data-testid="stHeader"] {
             background-color: transparent !important;
-            height: 0px; /* Стискаємо хедер, щоб не заважав */
+            height: 0px;
         }
-        
-        /* 2. Ховаємо зайві елементи (три крапки, меню) */
         [data-testid="stToolbar"] {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* 3. 🔥 АГРЕСИВНИЙ СТИЛЬ ДЛЯ КНОПКИ МЕНЮ (АДМІНКИ) 🔥 */
+        /* 2. 🔥 КНОПКА АДМІНА (КЛЮЧ) 🔥 */
         [data-testid="stSidebarCollapsedControl"] {
             display: flex !important;
             visibility: visible !important;
-            background-color: #ff4b4b !important; /* Яскраво-червоний */
-            color: white !important;
+            background-color: white !important;
+            color: #333 !important;
+            border: 2px solid rgba(0,0,0,0.2) !important;
+            border-radius: 4px !important;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important;
+            width: 34px !important;
+            height: 34px !important;
             
-            /* Розміри та форма */
-            width: 50px !important;
-            height: 50px !important;
-            border-radius: 50% !important;
-            border: 2px solid white !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4) !important;
-            
-            /* Позиція: ВІДСТУП ЗВЕРХУ 80px (щоб точно не сховалася) */
-            top: 80px !important;
-            left: 20px !important;
+            /* 📍 ПОЗИЦІЯ: Опускаємо ще нижче (під зум і локацію) */
+            /* Зум і локація займуть десь 150px зверху після зсуву */
+            /* Тому ставимо адміна на 200px */
+            top: 220px !important; 
+            left: 10px !important;
             z-index: 99999 !important;
         }
         
-        /* Додаємо іконку або літеру на кнопку */
+        /* Іконка ключа */
         [data-testid="stSidebarCollapsedControl"]::after {
             content: "🔑";
-            font-size: 24px;
+            font-size: 18px;
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, -55%);
         }
-        /* Ховаємо стандартну стрілочку всередині кнопки */
-        [data-testid="stSidebarCollapsedControl"] svg {
-            display: none !important;
-        }
-
-        /* 4. Прибираємо відступи контенту */
-        .block-container {
-            padding: 0 !important;
-            max-width: 100% !important;
-        }
+        [data-testid="stSidebarCollapsedControl"] svg { display: none !important; }
         
-        /* 5. Кнопка "Додати зону" знизу */
+        /* 3. Прибираємо відступи */
+        .block-container { padding: 0 !important; max-width: 100% !important; }
+        
+        /* 4. Кнопка "Додати зону" знизу */
         .floating-btn {
             position: fixed;
             bottom: 30px;
@@ -91,13 +83,10 @@ st.markdown("""
 
 # --- ФУНКЦІЇ ---
 def load_data():
-    if not os.path.exists(DB_FILE):
-        return []
+    if not os.path.exists(DB_FILE): return []
     with open(DB_FILE, "r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except:
-            return []
+        try: return json.load(f)
+        except: return []
 
 def save_data(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -105,7 +94,7 @@ def save_data(data):
 
 zones = load_data()
 
-# --- САЙДБАР (ВХІД) ---
+# --- САЙДБАР ---
 with st.sidebar:
     st.title("🔐 Вхід для адміна")
     password = st.text_input("Введи пароль", type="password")
@@ -115,7 +104,18 @@ with st.sidebar:
 # ==========================================
 if password != ADMIN_PASSWORD:
     
-    m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=False)
+    m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=True)
+    
+    # 🔥 ХАК: Опускаємо кнопки ЗУМУ та ГЕОЛОКАЦІЇ вниз на 100px
+    # Це CSS, який вставляється прямо всередину карти
+    css_fix = """
+    <style>
+    .leaflet-top.leaflet-left {
+        top: 100px !important;
+    }
+    </style>
+    """
+    m.get_root().html.add_child(folium.Element(css_fix))
     
     danger_group = folium.FeatureGroup(name="⛔ Заборона")
     safe_group = folium.FeatureGroup(name="✅ Парковка")
@@ -146,6 +146,8 @@ if password != ADMIN_PASSWORD:
 
     danger_group.add_to(m)
     safe_group.add_to(m)
+    
+    # Геолокація (теж опуститься завдяки css_fix)
     LocateControl(auto_start=True).add_to(m)
 
     st_folium(m, width="100%", height=850, returned_objects=[])
@@ -160,7 +162,6 @@ if password != ADMIN_PASSWORD:
 # ⚙️ АДМІНКА
 # ==========================================
 else:
-    # Відступ зверху для адмінки
     st.markdown("<div style='padding-top: 50px;'></div>", unsafe_allow_html=True)
     st.success("🔓 Режим Адміністратора")
     
@@ -176,7 +177,7 @@ else:
         if output.get("last_active_drawing"):
             drawing = output["last_active_drawing"]
             with st.form("save"):
-                name = st.text_input("Назва зони")
+                name = st.text_input("Назва")
                 z_type = st.selectbox("Тип", ["danger", "safe"])
                 info = st.text_input("Опис")
                 if st.form_submit_button("💾 Зберегти"):
@@ -204,13 +205,12 @@ else:
             filtered_zones = [z for z in zones if search_query.lower() in z['name'].lower() or str(search_query) in str(z.get('id', ''))]
         else:
             filtered_zones = zones
-
+        
         st.write(f"Знайдено: {len(filtered_zones)}")
-
+        
         for i, zone in enumerate(filtered_zones):
             real_index = zones.index(zone)
             icon = "⛔" if zone["type"] == "danger" else "✅"
-            
             with st.expander(f"{icon} {zone['name']} (ID: {zone.get('id', '')})"):
                 with st.form(key=f"edit_{zone.get('id')}_{i}"):
                     col1, col2 = st.columns(2)
@@ -228,11 +228,9 @@ else:
                         zones[real_index]['name'] = new_name
                         zones[real_index]['type'] = new_type
                         zones[real_index]['info'] = new_info
-                        if zone.get('shape') != 'polygon':
-                            zones[real_index]['radius'] = new_radius
+                        if zone.get('shape') != 'polygon': zones[real_index]['radius'] = new_radius
                         save_data(zones)
                         st.rerun()
-                
                 if st.button("🗑️ Видалити", key=f"del_btn_{zone.get('id')}"):
                     zones.pop(real_index)
                     save_data(zones)
