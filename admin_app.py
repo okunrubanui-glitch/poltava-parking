@@ -14,21 +14,27 @@ ADMIN_PASSWORD = "123" # 🔴 Твій пароль
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", page_title="Parking Poltava")
 
-# --- CSS: СТИЛІ ІНТЕРФЕЙСУ ---
+# --- CSS: ВИПРАВЛЕНА КНОПКА АДМІНА ---
 st.markdown("""
     <style>
-        /* 1. Хедер прозорий */
+        /* 1. Хедер робимо прозорим, але НЕ "сплющуємо" його в 0 */
         [data-testid="stHeader"] {
             background-color: transparent !important;
-            height: 0px;
+            pointer-events: none; /* Щоб можна було тикати крізь нього на карту */
         }
+        
+        /* 2. Ховаємо зайве */
         [data-testid="stToolbar"] {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* 2. 🔥 КНОПКА АДМІНА (КЛЮЧ) 🔥 */
+        /* 3. 🔥 КНОПКА АДМІНА (КЛЮЧ) 🔥 */
+        /* Робимо її видимою і клікабельною */
         [data-testid="stSidebarCollapsedControl"] {
             display: flex !important;
             visibility: visible !important;
+            pointer-events: auto !important; /* Вмикаємо кліки для кнопки */
+            
+            /* Стиль під кнопки карти */
             background-color: white !important;
             color: #333 !important;
             border: 2px solid rgba(0,0,0,0.2) !important;
@@ -37,12 +43,11 @@ st.markdown("""
             width: 34px !important;
             height: 34px !important;
             
-            /* 📍 ПОЗИЦІЯ: Опускаємо ще нижче (під зум і локацію) */
-            /* Зум і локація займуть десь 150px зверху після зсуву */
-            /* Тому ставимо адміна на 200px */
-            top: 220px !important; 
-            left: 10px !important;
-            z-index: 99999 !important;
+            /* 📍 ПОЗИЦІЯ: Чітко під кнопками зуму */
+            position: fixed !important;
+            top: 160px !important; 
+            left: 11px !important;
+            z-index: 999999 !important;
         }
         
         /* Іконка ключа */
@@ -56,10 +61,10 @@ st.markdown("""
         }
         [data-testid="stSidebarCollapsedControl"] svg { display: none !important; }
         
-        /* 3. Прибираємо відступи */
+        /* 4. Відступи */
         .block-container { padding: 0 !important; max-width: 100% !important; }
         
-        /* 4. Кнопка "Додати зону" знизу */
+        /* 5. Кнопка "Додати зону" */
         .floating-btn {
             position: fixed;
             bottom: 30px;
@@ -94,7 +99,7 @@ def save_data(data):
 
 zones = load_data()
 
-# --- САЙДБАР ---
+# --- САЙДБАР (ВХІД) ---
 with st.sidebar:
     st.title("🔐 Вхід для адміна")
     password = st.text_input("Введи пароль", type="password")
@@ -104,14 +109,15 @@ with st.sidebar:
 # ==========================================
 if password != ADMIN_PASSWORD:
     
+    # Карта з включеними контролами
     m = folium.Map(location=POLTAVA_COORDS, zoom_start=15, tiles='CartoDB positron', control_scale=False, zoom_control=True)
     
-    # 🔥 ХАК: Опускаємо кнопки ЗУМУ та ГЕОЛОКАЦІЇ вниз на 100px
-    # Це CSS, який вставляється прямо всередину карти
+    # 🔥 ХАК: Опускаємо карту трохи вниз, щоб кнопки зуму не лізли на "чубчик" телефону
+    # І опускаємо самі кнопки зуму через CSS Leaflet
     css_fix = """
     <style>
     .leaflet-top.leaflet-left {
-        top: 100px !important;
+        top: 60px !important; /* Відступ кнопок зверху */
     }
     </style>
     """
@@ -147,7 +153,7 @@ if password != ADMIN_PASSWORD:
     danger_group.add_to(m)
     safe_group.add_to(m)
     
-    # Геолокація (теж опуститься завдяки css_fix)
+    # Геолокація
     LocateControl(auto_start=True).add_to(m)
 
     st_folium(m, width="100%", height=850, returned_objects=[])
